@@ -1,5 +1,5 @@
 # Builds the Cuba offline data from ONE Geofabrik extract and publishes it as a release:
-#   cuba.pmtiles          the map (OpenMapTiles schema, z0-14), with Planetiler
+#   cuba.pmtiles          the map (OpenMapTiles schema, z0-14) plus a road_signs layer, with Planetiler and tile-join
 #   cuba-valhalla.tar.gz  the routing data (Valhalla tiles, gzip), with the official valhalla-scripted image
 # Then it rewrites cuba.json, which the app reads to know what to download. A part that is not rebuilt keeps pointing
 # to its file in an earlier release (same tag and sha256), so no app downloads it again.
@@ -53,12 +53,26 @@ jobs:
         if: inputs.parts != 'routing'
         env:
           ARGS: ${{ inputs.args }}
+          TIPPECANOE: '2.79.0'
         run: |
           curl -fsSL -o planetiler.jar https://github.com/onthegomap/planetiler/releases/latest/download/planetiler.jar
           # The extract is already in data/sources/cuba.osm.pbf; --download should only fetch what is missing (the
           # world water polygons and Natural Earth). Check the log for a second download of the extract.
-          java -Xmx4g -jar planetiler.jar --download --area=cuba --output=out/cuba.pmtiles $ARGS
-          ls -l out/cuba.pmtiles
+          # Intermediate files go to build/: everything in out/ is checksummed and published.
+          mkdir -p build
+          java -Xmx4g -jar planetiler.jar --download --area=cuba --output=build/omt.pmtiles $ARGS
+          # OpenMapTiles has no road signs: build them as their own layer (map/road-signs.yml) and merge them in.
+          java -Xmx2g -jar planetiler.jar generate-custom --schema=map/road-signs.yml --output=build/signs.pmtiles \
+            --maxzoom=14
+          git clone -q --depth 1 --branch "$TIPPECANOE" https://github.com/felt/tippecanoe build/tippecanoe
+          sudo apt-get install -y -qq libsqlite3-dev zlib1g-dev > /dev/null
+          make -C build/tippecanoe -j4 tile-join tippecanoe-decode > /dev/null
+          build/tippecanoe/tile-join --no-tile-size-limit -o out/cuba.pmtiles build/omt.pmtiles build/signs.pmtiles
+          ls -l build/omt.pmtiles build/signs.pmtiles out/cuba.pmtiles
+          # A z14 tile of central Havana (Parque Central) must hold road signs.
+          signs=$(build/tippecanoe/tippecanoe-decode -l road_signs out/cuba.pmtiles 14 4443 7109 | grep -c '"type": "Feature"')
+          echo "road_signs in tile 14/4443/7109: $signs"
+          test "$signs" -gt 0
 
       - name: Build cuba-valhalla.tar.gz
         if: inputs.parts != 'map'
@@ -89,8 +103,8 @@ jobs:
           tag="cuba-$(date -u +%Y-%m-%d)"
           echo "TAG=$tag" >> "$GITHUB_ENV"
           case "$PARTS" in
-            both) what="el mapa vectorial (esquema OpenMapTiles, zoom 0-14, Planetiler) y los datos de rutas (teselas de Valhalla)" ;;
-            map) what="solo el mapa vectorial (esquema OpenMapTiles, zoom 0-14, Planetiler); las rutas siguen en su release anterior" ;;
+            both) what="el mapa vectorial (esquema OpenMapTiles, zoom 0-14, Planetiler, con señales de tráfico) y los datos de rutas (teselas de Valhalla)" ;;
+            map) what="solo el mapa vectorial (esquema OpenMapTiles, zoom 0-14, Planetiler, con señales de tráfico); las rutas siguen en su release anterior" ;;
             routing) what="solo los datos de rutas (teselas de Valhalla); el mapa sigue en su release anterior" ;;
           esac
           gh release create "$tag" out/* --repo "$GITHUB_REPOSITORY" \

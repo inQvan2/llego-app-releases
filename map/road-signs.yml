@@ -1,0 +1,31 @@
+# Planetiler custom schema: the road_signs layer merged into cuba.pmtiles (OpenMapTiles has no signs).
+schema_name: Road signs
+attribution: <a href="https://www.openstreetmap.org/copyright" target="_blank">&copy; OpenStreetMap contributors</a>
+args:
+  osm_path: data/sources/cuba.osm.pbf
+sources:
+  osm:
+    type: osm
+    local_path: '${ args.osm_path }'
+layers:
+  - id: road_signs
+    features:
+      - source: osm
+        geometry: point
+        min_zoom: 14
+        include_when:
+          highway: [stop, give_way, traffic_signals, crossing]
+          railway: level_crossing
+        attributes:
+          - key: highway
+            tag_value: highway
+          - key: railway
+            tag_value: railway
+      - source: osm
+        geometry: line
+        min_zoom: 14
+        include_when:
+          maxspeed: __any__
+        attributes:
+          - key: maxspeed
+            tag_value: maxspeed
