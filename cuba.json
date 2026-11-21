@@ -1,7 +1,7 @@
 {
- "tag": "cuba-2026-10-29",
- "url": "https://github.com/inQvan2/llego-app-releases/releases/download/cuba-2026-10-29/cuba.pmtiles",
- "size": 89415757,
+ "tag": "cuba-2026-11-21",
+ "url": "https://github.com/inQvan2/llego-app-releases/releases/download/cuba-2026-11-21/cuba.pmtiles",
+ "size": 90367850,
  "routing": {
   "tag": "cuba-2026-11-01",
   "url": "https://github.com/inQvan2/llego-app-releases/releases/download/cuba-2026-11-01/cuba-valhalla.tar.gz",
@@ -11,5 +11,7 @@
   "osmDate": "2026-10-31T23:10:15Z",
   "engine": "valhalla",
   "formatVersion": 1
- }
+ },
+ "sha256": "289e6c4ef99dc65c5ff702053c53d10143e1fe5bb538eb6a800ba99fd78ae4fb",
+ "osmDate": "2026-11-21T00:30:50Z"
 }
